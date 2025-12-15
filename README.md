@@ -5,7 +5,6 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Website](https://img.shields.io/website?url=https%3A%2F%2Fpopcan48.xyz&label=popcan48.xyz)](https://popcan48.xyz)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## 简介
 
