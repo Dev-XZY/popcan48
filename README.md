@@ -1,7 +1,10 @@
 # popcan48
 
 > 一个基于 Cloudflare Workers 的口袋48翻牌备份 & AI 互动工具。
+> 🌐 **在线体验**：[popcan48.xyz](https://popcan48.xyz)
 
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fpopcan48.xyz&label=popcan48.xyz)](https://popcan48.xyz)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## 简介
@@ -12,7 +15,7 @@
 ## 功能一览
 
 * **⚡️ 翻牌备份**：Token 登录后，一键拉取账号下所有历史翻牌，永久保存。
-* **🔍 超级检索**：支持关键词搜索，也能按时间、成员、鸡腿数（价格）、已读状态筛选。
+* **🔍 超级检索**：支持关键词搜索，也能按时间、成员、鸡腿数、状态筛选。
 * **📂 数据导出**：支持把所有记录导出成 Excel ，方便本地留档算账。
 * **🤖 AI 伴聊**：基于你的历史翻牌风格，让 AI 扮演小偶像跟你对话。
 
