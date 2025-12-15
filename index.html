@@ -1,0 +1,2575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>口袋48翻牌记录检索</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #f5f5f7;
+      padding: 20px;
+    }
+    .card {
+      border-radius: 16px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+      border: none;
+    }
+    .avatar-box img {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .badge-text {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 11px;
+      border-radius: 999px;
+      background: #e9f3ff;
+      color: #0d6efd;
+    }
+    .badge-audio {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 11px;
+      border-radius: 999px;
+      background: #fff3cd;
+      color: #856404;
+    }
+    table {
+      font-size: 13px;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background-color: #f8f9fa;
+      z-index: 1;
+    }
+    .table-wrapper {
+      max-height: 600px;
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid #e5e5e5;
+      background: #fff;
+    }
+    .highlight-row {
+      background-color: #fff3cd !important;
+      animation: highlight 2s ease-in-out;
+    }
+    @keyframes highlight {
+      0% { background-color: #ffeb3b; }
+      100% { background-color: #fff3cd; }
+    }
+    .question-content, .answer-content {
+      max-width: 300px;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    .chat-messages {
+      height: 500px;
+      overflow-y: auto;
+      border: 1px solid #e5e5e5;
+      border-radius: 12px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      margin-bottom: 15px;
+    }
+    .message {
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+    }
+    .message.fan {
+      align-items: flex-end;
+    }
+    .message.idol {
+      align-items: flex-start;
+    }
+    .message-bubble {
+      max-width: 70%;
+      padding: 10px 15px;
+      border-radius: 18px;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    .message.fan .message-bubble {
+      background-color: hwb(264 71% 0%);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .message.idol .message-bubble {
+      background-color: white;
+      color: #333;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .message-time {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+      padding: 0 5px;
+    }
+    .message-sender {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 4px;
+      padding: 0 5px;
+    }
+    .message.fan .message-sender {
+      text-align: right;
+      color: #9c27b0;
+    }
+    .message.idol .message-sender {
+      text-align: left;
+      color: #666;
+    }
+    .result-bar {
+      font-size: 13px;
+      color: #6c757d;
+    }
+    .kw-highlight {
+      background-color: rgba(255, 0, 0, 0.12);
+      color: #c1121f;
+      padding: 0 2px;
+      border-radius: 4px;
+    }
+    .sample-list {
+      max-height: 240px;
+      overflow: auto;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      padding: 10px;
+      background: #fafafa;
+    }
+    .sample-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .sample-item:last-child {
+      border-bottom: none;
+    }
+    .sample-meta {
+      font-size: 12px;
+      color: #6c757d;
+    }
+    .sample-text {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .sample-badge {
+      display: inline-block;
+      padding: 0 6px;
+      border-radius: 6px;
+      background: #e9f3ff;
+      color: #0d6efd;
+      font-size: 11px;
+      margin-right: 6px;
+    }
+    tr[style*="cursor: pointer"]:hover {
+      background-color: #f8f9fa !important;
+    }
+    tr[style*="cursor: pointer"] {
+      transition: background-color 0.2s;
+    }
+  </style>
+</head>
+<body>
+<div class="container" style="max-width: 1100px;">
+  <div class="card p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center">
+        <div class="avatar-box me-3">
+          <img src="https://via.placeholder.com/50" alt="avatar">
+        </div>
+        <div>
+          <div>
+            <span class="fw-bold" id="selectedNickname">未登录</span>
+            <span class="text-muted" id="selectedId" style="margin-left: 4px;"></span>
+          </div>
+          <div class="text-muted mt-1">
+            余额：
+            <span class="text-danger fw-bold" id="selectedBalance">--</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <button class="btn btn-sm btn-outline-primary me-2" id="refreshBalanceButton">
+          刷新余额
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" id="logoutButton">
+          退出登录
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-4 mb-4">
+    <h5 class="mb-3">登录口袋48账号（手机号 + 短信验证码）</h5>
+    <p class="text-muted small">
+      使用与口袋48 App 相同的手机号登录。验证码通过官方通道发送，本页面只转发登录请求。
+    </p>
+
+    <form id="smsLoginForm" class="row g-3">
+      <div class="col-md-2">
+        <label class="form-label fw-bold">区号</label>
+        <input type="text" class="form-control" id="areaCodeInput" value="86">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-bold">手机号</label>
+        <input type="text" class="form-control" id="mobileInput" placeholder="不含区号" required>
+      </div>
+      <div class="col-md-3 align-self-end">
+        <button type="button" class="btn btn-primary w-100" id="sendCodeButton">
+          发送验证码
+        </button>
+      </div>
+      <div class="col-md-2 align-self-end">
+        <button type="button" class="btn btn-outline-secondary w-100" id="cancelLoginButton" style="display: none;">
+          取消
+        </button>
+      </div>
+    </form>
+
+    <div id="verifyCodeSection" class="row g-3 mt-2">
+      <div class="col-md-3">
+        <label class="form-label fw-bold">验证码</label>
+        <input type="text" class="form-control" id="verifyCodeInput" placeholder="请输入短信验证码" maxlength="6" disabled>
+      </div>
+      <div class="col-md-3 align-self-end">
+        <button type="button" class="btn btn-success w-100" id="loginButton" disabled>
+          确认登录
+        </button>
+      </div>
+      <div class="col-md-6 align-self-end">
+        <span class="text-muted small" id="codeStatus">请先发送验证码</span>
+      </div>
+    </div>
+
+    <p class="text-muted small mt-2">
+      点击"发送验证码"后，请在页面中输入短信验证码并点击"确认登录"。登录成功后，上面的昵称 / ID / 余额会自动更新。
+    </p>
+  </div>
+
+  <div class="card p-4">
+    <h5 class="mb-3">翻牌记录检索</h5>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-12 d-flex align-items-end gap-2">
+        <button class="btn btn-primary" id="getAnswerButton">
+          获取 / 刷新我的翻牌数据
+        </button>
+        <div class="d-flex align-items-center gap-2">
+          <label class="form-label mb-0 small text-nowrap">最多获取：</label>
+          <select class="form-control form-control-sm" id="maxRecordsSelect" style="width: 120px;">
+            <option value="1000">1000 条</option>
+            <option value="5000">5000 条</option>
+            <option value="10000" selected>10000 条</option>
+            <option value="20000">20000 条</option>
+            <option value="-1">全部（谨慎）</option>
+          </select>
+        </div>
+        <button class="btn btn-success" id="exportButton">
+          导出 Excel
+        </button>
+        <button class="btn btn-outline-success" id="previewButton">
+          预览/下载
+        </button>
+      </div>
+      <div class="col-md-12">
+        <div class="progress" id="loadingProgress" style="display: none; height: 25px;">
+          <div class="progress-bar progress-bar-striped progress-bar-animated" 
+               id="loadingProgressBar" 
+               role="progressbar" 
+               style="width: 0%">
+            <span id="loadingProgressText">0%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-2">
+        <label class="form-label">类型筛选</label>
+        <select class="form-control" id="filterType">
+          <option value="">全部</option>
+          <option value="1">文字</option>
+          <option value="2">语音</option>
+          <option value="3">视频</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">状态筛选</label>
+        <select class="form-control" id="filterStatus">
+          <option value="">全部</option>
+          <option value="answered">已翻</option>
+          <option value="returned">退回</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">鸡腿数排序</label>
+        <select class="form-control" id="sortCost">
+          <option value="">不排序</option>
+          <option value="desc">从高到低</option>
+          <option value="asc">从低到高</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">开始日期</label>
+        <input type="date" class="form-control" id="filterDateStart">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">结束日期</label>
+        <input type="date" class="form-control" id="filterDateEnd">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">时间排序</label>
+        <select class="form-control" id="sortTime">
+          <option value="">不排序</option>
+          <option value="asc">从早到晚</option>
+          <option value="desc">从晚到早</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-12">
+        <label class="form-label">关键词搜索（提问 / 回答）</label>
+        <div class="input-group mb-2">
+          <input type="text" class="form-control" id="filterKeyword" placeholder="例如：某个词、某句话的一部分…">
+          <button class="btn btn-outline-secondary" id="searchButton" type="button">搜索</button>
+          <button class="btn btn-outline-danger btn-sm" id="clearSearchButton" type="button" style="display: none;">清除搜索</button>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <span class="text-muted small">搜索范围：</span>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="filterScope" id="filterScopeAll" value="all" checked>
+            <label class="form-check-label" for="filterScopeAll">提问 + 回答</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="filterScope" id="filterScopeQuestion" value="question">
+            <label class="form-check-label" for="filterScopeQuestion">只检索提问</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="filterScope" id="filterScopeAnswer" value="answer">
+            <label class="form-check-label" for="filterScopeAnswer">只检索回答</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2 result-bar">
+      <span id="resultCount"></span>
+      <div id="paginationInfo" class="text-muted small"></div>
+    </div>
+
+    <div class="table-wrapper" id="tableWrapper">
+      <table class="table table-sm mb-0">
+        <thead>
+        <tr>
+          <th style="width: 70px;">类型</th>
+          <th style="width: 120px;">偶像名</th>
+          <th style="width: 150px;">提问时间</th>
+          <th>提问内容</th>
+          <th>回答内容</th>
+          <th style="width: 100px;">鸡腿数</th>
+        </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+      <div class="d-flex align-items-center">
+        <button class="btn btn-sm btn-outline-primary" id="prevPage" disabled>上一页</button>
+        <span class="mx-2">第</span>
+        <input type="number" class="form-control form-control-sm" id="pageInput" value="1" min="1" style="width: 80px; text-align: center;">
+        <span class="mx-2" id="pageInfo">页，共 1 页</span>
+        <button class="btn btn-sm btn-outline-primary ms-2" id="goToPage">跳转</button>
+        <button class="btn btn-sm btn-outline-primary ms-2" id="nextPage" disabled>下一页</button>
+      </div>
+      <div class="text-muted small">
+        每页显示 200 条
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="mb-0">翻牌统计</h5>
+      <button class="btn btn-info btn-sm" id="showStatsButton" disabled>
+        显示统计（请先获取数据）
+      </button>
+    </div>
+    <div id="statsContainer" style="display: none;">
+      <div class="d-flex justify-content-between align-items-center mb-2 result-bar">
+        <span id="statsInfo" class="text-muted small"></span>
+      </div>
+      <div class="table-wrapper">
+        <table class="table table-sm mb-0">
+          <thead>
+          <tr>
+            <th style="width: 150px;">成员</th>
+            <th style="width: 120px;">翻牌数量</th>
+            <th style="width: 120px;">总鸡腿数</th>
+            <th style="width: 120px;">平均鸡腿/条</th>
+          </tr>
+          </thead>
+          <tbody id="statsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-4">
+    <h5 class="mb-3">AI聊天 - 与偶像对话</h5>
+    
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <label class="form-label">选择小偶像</label>
+        <select class="form-control" id="idolSelect">
+          <option value="">请先获取翻牌数据</option>
+        </select>
+      </div>
+      <div class="col-md-4 d-flex align-items-end">
+        <button class="btn btn-primary" id="startChatButton" disabled>开始聊天</button>
+        <button class="btn btn-outline-secondary ms-2" id="clearChatButton" disabled>清空聊天</button>
+      </div>
+      <div class="col-md-4 d-flex align-items-center">
+        <span class="text-muted small" id="chatStatus">未开始聊天</span>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-4" style="display: none;">
+        <label class="form-label mb-1">API Base</label>
+        <input type="text" class="form-control" id="apiBaseInput" placeholder="例如：https://api.openai.com">
+        <div class="form-text">不需要以 / 结尾</div>
+      </div>
+      <div class="col-md-4" style="display: none;">
+        <label class="form-label mb-1">API Key</label>
+        <input type="password" class="form-control" id="apiKeyInput" placeholder="填写你的密钥">
+        <div class="form-text">仅保存在本地浏览器</div>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label mb-1">模型名称</label>
+        <select class="form-control" id="modelInput">
+          <optgroup label="🔥 推荐模型">
+            <option value="MiniMax-Text-01">MiniMax-Text-01</option>
+            <option value="DeepSeek-V3.2-Instruct">DeepSeek-V3.2-Instruct</option>
+            <option value="Qwen3-235B-A22B-Instruct-2507">Qwen3-235B-A22B-Instruct-2507</option>
+          </optgroup>
+          <optgroup label="MiniMax 系列">
+            <option value="MiniMax-M2">MiniMax-M2</option>
+            <option value="MiniMax-M1-80k">MiniMax-M1-80k</option>
+          </optgroup>
+          <optgroup label="DeepSeek 系列">
+            <option value="DeepSeek-V3.1">DeepSeek-V3.1</option>
+            <option value="DeepSeek-V3-250324">DeepSeek-V3-250324</option>
+          </optgroup>
+          <optgroup label="智谱 GLM 系列">
+            <option value="GLM-4.5">GLM-4.5</option>
+            <option value="GLM-4-Plus">GLM-4-Plus</option>
+            <option value="GLM-4-Air">GLM-4-Air</option>
+            <option value="GLM-4.5-Air">GLM-4.5-Air</option>
+            <option value="GLM-Z1-AirX">GLM-Z1-AirX</option>
+            <option value="GLM-Z1-Flash">GLM-Z1-Flash</option>
+            <option value="GLM-4-Flash">GLM-4-Flash</option>
+            <option value="GLM-4-FlashX">GLM-4-FlashX</option>
+          </optgroup>
+          <optgroup label="其他模型">
+            <option value="Kimi-K2">Kimi-K2</option>
+            <option value="Baichuan-M2">Baichuan-M2</option>
+            <option value="ERNIE-4.5-Turbo-128K">ERNIE-4.5-Turbo-128K</option>
+          </optgroup>
+          <optgroup label="自定义">
+            <option value="custom">✏️ 自定义模型...</option>
+          </optgroup>
+        </select>
+        <div class="form-text">💡 如果一个模型出错，可以换另外的模型试试</div>
+      </div>
+      <div class="col-md-1 d-flex align-items-end">
+        <button class="btn btn-outline-info w-100" id="testAIButton">测试</button>
+      </div>
+    </div>
+    <div class="text-muted small mb-3">如遇并发限制，请稍候重试</div>
+
+    <div class="row g-3 mb-2 align-items-center">
+      <div class="col-md-4">
+        <label class="form-label mb-1">示例条数上限</label>
+        <select class="form-control form-control-sm" id="sampleCountSelect">
+          <option value="20" selected>20 条（默认）</option>
+          <option value="50">50 条</option>
+          <option value="100">100 条</option>
+        </select>
+      </div>
+      <div class="col-md-8 d-flex flex-wrap align-items-center gap-2">
+        <button class="btn btn-outline-primary btn-sm" id="selectAllSamples" disabled>本页全选</button>
+        <button class="btn btn-outline-secondary btn-sm" id="clearSamplesButton" disabled>清空选择</button>
+        <span class="text-muted small" id="sampleHelper">未勾选时默认取前 20 条样本。</span>
+      </div>
+    </div>
+
+    <div class="mt-2" id="sampleListContainer" style="display: none;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="text-muted small" id="sampleListInfo"></div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-primary" id="samplePrevPage" disabled>上一页</button>
+          <span class="text-muted small">第</span>
+          <input type="number" class="form-control form-control-sm" id="samplePageInput" value="1" min="1" style="width: 60px; text-align: center;">
+          <span class="text-muted small" id="samplePageInfo">页</span>
+          <button class="btn btn-sm btn-outline-primary" id="sampleNextPage" disabled>下一页</button>
+        </div>
+      </div>
+      <div class="sample-list" id="sampleList"></div>
+    </div>
+
+    <div id="chatContainer" style="display: none;">
+      <div class="chat-messages" id="chatMessages">
+      </div>
+      <div class="chat-input-area mt-3">
+        <div class="input-group">
+          <input type="text" class="form-control" id="chatInput" placeholder="输入消息..." disabled>
+          <button class="btn btn-primary" id="sendButton" disabled>发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const selectedNickname = document.getElementById("selectedNickname");
+  const selectedId        = document.getElementById("selectedId");
+  const selectedBalance   = document.getElementById("selectedBalance");
+  const refreshBalanceBtn = document.getElementById("refreshBalanceButton");
+  const logoutButton      = document.getElementById("logoutButton");
+
+  const smsLoginForm  = document.getElementById("smsLoginForm");
+  const areaCodeInput = document.getElementById("areaCodeInput");
+  const mobileInput   = document.getElementById("mobileInput");
+  const sendCodeButton = document.getElementById("sendCodeButton");
+  const verifyCodeSection = document.getElementById("verifyCodeSection");
+  const verifyCodeInput = document.getElementById("verifyCodeInput");
+  const loginButton = document.getElementById("loginButton");
+  const cancelLoginButton = document.getElementById("cancelLoginButton");
+  const codeStatus = document.getElementById("codeStatus");
+
+  const getAnswerButton = document.getElementById("getAnswerButton");
+  const exportButton    = document.getElementById("exportButton");
+  const previewButton   = document.getElementById("previewButton");
+  const filterType      = document.getElementById("filterType");
+  const filterStatus    = document.getElementById("filterStatus");
+  const sortCost        = document.getElementById("sortCost");
+  const filterDateStart = document.getElementById("filterDateStart");
+  const filterDateEnd   = document.getElementById("filterDateEnd");
+  const sortTime        = document.getElementById("sortTime");
+  const filterKeyword   = document.getElementById("filterKeyword");
+  const filterScopeRadios = document.querySelectorAll("input[name='filterScope']");
+  const searchButton    = document.getElementById("searchButton");
+  const clearSearchButton = document.getElementById("clearSearchButton");
+  const tableBody       = document.getElementById("tableBody");
+  const resultCount     = document.getElementById("resultCount");
+  const prevPage        = document.getElementById("prevPage");
+  const nextPage        = document.getElementById("nextPage");
+  const pageInput       = document.getElementById("pageInput");
+  const goToPage         = document.getElementById("goToPage");
+  const pageInfo        = document.getElementById("pageInfo");
+  const paginationInfo  = document.getElementById("paginationInfo");
+  const idolSelect      = document.getElementById("idolSelect");
+  const startChatButton = document.getElementById("startChatButton");
+  const clearChatButton = document.getElementById("clearChatButton");
+  const chatContainer   = document.getElementById("chatContainer");
+  const chatMessages    = document.getElementById("chatMessages");
+  const chatInput       = document.getElementById("chatInput");
+  const sendButton      = document.getElementById("sendButton");
+  const chatStatus      = document.getElementById("chatStatus");
+  const sampleCountSelect   = document.getElementById("sampleCountSelect");
+  const sampleListContainer = document.getElementById("sampleListContainer");
+  const sampleList          = document.getElementById("sampleList");
+  const selectAllSamples    = document.getElementById("selectAllSamples");
+  const clearSamplesButton  = document.getElementById("clearSamplesButton");
+  const sampleListInfo      = document.getElementById("sampleListInfo");
+  const sampleHelper        = document.getElementById("sampleHelper");
+  const samplePrevPage      = document.getElementById("samplePrevPage");
+  const sampleNextPage      = document.getElementById("sampleNextPage");
+  const samplePageInput     = document.getElementById("samplePageInput");
+  const samplePageInfo      = document.getElementById("samplePageInfo");
+  const apiBaseInput        = document.getElementById("apiBaseInput");
+  const apiKeyInput         = document.getElementById("apiKeyInput");
+  const modelInput          = document.getElementById("modelInput");
+  const testAIButton        = document.getElementById("testAIButton");
+
+  if (modelInput) {
+    modelInput.addEventListener("change", function() {
+      if (this.value === "custom") {
+        const customModel = prompt("请输入自定义模型名称：", "gpt-3.5-turbo");
+        if (customModel && customModel.trim()) {
+          const newOption = document.createElement("option");
+          newOption.value = customModel.trim();
+          newOption.textContent = `✏️ ${customModel.trim()} (自定义)`;
+          
+          const customGroup = this.querySelector('optgroup[label="自定义"]');
+          if (customGroup) {
+            const existingCustom = customGroup.querySelectorAll('option:not([value="custom"])');
+            existingCustom.forEach(opt => opt.remove());
+            customGroup.insertBefore(newOption, customGroup.querySelector('option[value="custom"]'));
+          }
+          this.value = customModel.trim();
+          localStorage.setItem("ai_model_name", customModel.trim());
+        } else {
+          this.value = localStorage.getItem("ai_model_name") || "MiniMax-Text-01";
+        }
+      }
+    });
+  }
+
+  const showStatsButton = document.getElementById("showStatsButton");
+  const statsContainer  = document.getElementById("statsContainer");
+  const statsTableBody  = document.getElementById("statsTableBody");
+  const statsInfo       = document.getElementById("statsInfo");
+
+  let currentToken   = null;
+  let rawAnswerList  = [];
+  let viewRows       = [];
+  let currentPage    = 1;
+  const pageSize     = 200;
+  let filteredRows   = [];
+  let highlightedRowId = null;
+  let selectedIdol   = null;
+  let chatHistory    = [];
+  let selectedSampleIndexes = new Set();
+  const SAMPLE_PAGE_SIZE = 200;
+  let currentSamplePage = 1;
+  const defaultModel = "gpt-3.5-turbo";
+  let lastKeyword    = "";
+
+  function getHeadersBeforeLogin() {
+    return {
+      "Content-Type": "application/json;charset=utf-8",
+      "Accept": "*/*",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Connection": "keep-alive",
+      "pa": "MTcwODkyNDc2MjAwMCw4MTM1LDMwNTk2QTA3NTZBOTNBRjY2MDAxNzkxRDkzREFGOTU1LA==",
+      "User-Agent": "PocketFans201807/7.1.10 (iPhone; iOS 16.2; Scale/3.00)",
+      "Accept-Language": "zh-Hans-CN;q=1, zh-Hant-TW;q=0.9, ja-CN;q=0.8",
+      "appInfo": JSON.stringify({
+        "vendor": "huaweiphone",
+        "deviceId": "F2BA149C-06DB-9843-31DE-36BF375E36F2",
+        "appVersion": "7.1.10",
+        "appBuild": "24020203",
+        "osVersion": "16.2.0",
+        "osType": "ios",
+        "deviceName": "My HuaweiPhone",
+        "os": "ios"
+      })
+    };
+  }
+
+  function getHeaders(token) {
+    return {
+      "Content-Type": "application/json;charset=utf-8",
+      "Accept": "*/*",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Connection": "keep-alive",
+      "pa": "MTcwODkyNDc2MjAwMCw4MTM1LDMwNTk2QTA3NTZBOTNBRjY2MDAxNzkxRDkzREFGOTU1LA==",
+      "User-Agent": "PocketFans201807/7.1.10 (iPhone; iOS 16.2; Scale/3.00)",
+      "Accept-Language": "zh-Hans-CN;q=1, zh-Hant-TW;q=0.9, ja-CN;q=0.8",
+      "appInfo": JSON.stringify({
+        "vendor": "huaweiphone",
+        "deviceId": "F2BA149C-06DB-9843-31DE-36BF375E36F2",
+        "appVersion": "7.1.10",
+        "appBuild": "24020203",
+        "osVersion": "16.2.0",
+        "osType": "ios",
+        "deviceName": "My HuaweiPhone",
+        "os": "ios"
+      }),
+      "token": token
+    };
+  }
+
+  async function fetchDataBeforeLogin(url, data) {
+    if (!url.startsWith("http")) {
+      url = "https://api.popcan48.xyz" + (url.startsWith("/") ? url : "/" + url);
+    }
+    
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: getHeadersBeforeLogin(),
+      body: JSON.stringify(data)
+    });
+    
+    const text = await resp.text();
+    console.log("【API响应】", text.slice(0, 500));
+    
+    let jsonText = text;
+    const braceIndex = text.indexOf("{");
+    if (braceIndex !== -1) {
+      jsonText = text.slice(braceIndex);
+    }
+    
+    try {
+      return JSON.parse(jsonText);
+    } catch (e) {
+      console.error("JSON解析失败，原始响应:", text.slice(0, 500));
+      throw new Error(`响应解析失败: ${e.message}`);
+    }
+  }
+
+  async function fetchData(url, data) {
+    if (!currentToken) {
+      alert("请先登录账号");
+      throw new Error("Not logged in");
+    }
+    
+    if (!url.startsWith("http")) {
+      url = "https://api.popcan48.xyz" + (url.startsWith("/") ? url : "/" + url);
+    }
+    
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: getHeaders(currentToken),
+      body: JSON.stringify(data)
+    });
+    
+    const text = await resp.text();
+    console.log("【API响应】", text.slice(0, 500));
+    
+    if (!resp.ok) {
+      console.error("HTTP错误:", resp.status, text);
+      throw new Error(`HTTP ${resp.status}: ${text.slice(0, 200)}`);
+    }
+    
+    let jsonText = text;
+    const braceIndex = text.indexOf("{");
+    const bracketIndex = text.indexOf("[");
+    const jsonStartIndex = braceIndex !== -1 && (bracketIndex === -1 || braceIndex < bracketIndex) 
+      ? braceIndex 
+      : bracketIndex !== -1 ? bracketIndex : -1;
+    
+    if (jsonStartIndex !== -1) {
+      jsonText = text.slice(jsonStartIndex);
+    }
+    
+    try {
+      return JSON.parse(jsonText);
+    } catch (e) {
+      console.error("JSON解析失败，原始响应:", text.slice(0, 500));
+      throw new Error(`响应解析失败: ${e.message}\n响应前500字符: ${text.slice(0, 500)}`);
+    }
+  }
+
+  function loadAIConfig() {
+    if (apiBaseInput) {
+      apiBaseInput.value = localStorage.getItem("ai_api_base") || "";
+    }
+    if (apiKeyInput) {
+      apiKeyInput.value = localStorage.getItem("ai_api_key") || "";
+    }
+    if (modelInput) {
+      const savedModel = localStorage.getItem("ai_model_name") || defaultModel;
+      const modelExists = Array.from(modelInput.options).some(opt => opt.value === savedModel);
+      
+      if (modelExists) {
+        modelInput.value = savedModel;
+      } else if (savedModel !== "custom") {
+        const customGroup = modelInput.querySelector('optgroup[label="自定义"]');
+        if (customGroup) {
+          const newOption = document.createElement("option");
+          newOption.value = savedModel;
+          newOption.textContent = `✏️ ${savedModel} (自定义)`;
+          customGroup.insertBefore(newOption, customGroup.querySelector('option[value="custom"]'));
+          modelInput.value = savedModel;
+        }
+      } else {
+        modelInput.value = "MiniMax-Text-01";
+      }
+    }
+  }
+
+  function saveAIConfig() {
+    if (apiBaseInput) {
+      localStorage.setItem("ai_api_base", apiBaseInput.value.trim());
+    }
+    if (apiKeyInput) {
+      localStorage.setItem("ai_api_key", apiKeyInput.value.trim());
+    }
+    if (modelInput) {
+      localStorage.setItem("ai_model_name", modelInput.value.trim() || defaultModel);
+    }
+  }
+
+  function getAIConfig() {
+    const workerUrl = "https://ai.popcan48.xyz";
+    const modelName = (modelInput?.value || "").trim() || defaultModel;
+
+    if (!modelName) throw new Error("模型名称未配置");
+
+    const apiBase = workerUrl.replace(/\/+$/, "");
+    console.log("AI Worker URL:", apiBase);
+    console.log("Selected Model:", modelName);
+
+    return {
+      apiBase: apiBase,
+      apiKey: "",
+      modelName
+    };
+  }
+
+  function updateAccountHeader(info) {
+    if (!info) {
+      currentToken = null;
+      selectedNickname.textContent = "未登录";
+      selectedId.textContent        = "";
+      selectedBalance.textContent   = "--";
+      return;
+    }
+    currentToken = info.token;
+    selectedNickname.textContent = info.nickname || "已登录";
+    selectedId.textContent       = info.id ? `(ID: ${info.id})` : "";
+    selectedBalance.textContent  = info.balance != null ? info.balance : "--";
+  }
+
+  function mapAnswerToRow(answer) {
+    let typeLabel = "文字";
+    if (answer.answerType === 2) typeLabel = "语音";
+    if (answer.answerType === 3) typeLabel = "视频";
+
+    const memberName =
+      (answer.baseUserInfo && (answer.baseUserInfo.nickname || answer.baseUserInfo.starName)) ||
+      "";
+
+    const questionContent = answer.content || "";
+    
+    let answerContent = "";
+    let mediaUrl = "";
+    if (answer.status === 2) {
+      if (answer.answerType === 1) {
+        answerContent = answer.answerContent || "";
+      } else {
+        try {
+          const obj = JSON.parse(answer.answerContent || "{}");
+          const url = obj.url || "";
+          mediaUrl = url;
+          answerContent =
+            (answer.answerType === 2 ? "[语音] " : "[视频] ") +
+            (url || "");
+        } catch (e) {
+          answerContent = "[多媒体翻牌]（内容解析失败）";
+        }
+      }
+    } else {
+      answerContent = "【未翻 / 已退款】";
+    }
+
+    const qtime = answer.qtime ? parseInt(answer.qtime, 10) : Date.now();
+    const answerTime = answer.answerTime ? parseInt(answer.answerTime, 10) : null;
+    const questionDate = new Date(qtime);
+    const answerDate = answerTime ? new Date(answerTime) : null;
+
+    const cost = answer.cost || answer.price || 0;
+
+    return {
+      id: answer.questionId || Date.now() + Math.random(),
+      type: typeLabel,
+      answerType: answer.answerType || 1,
+      member: memberName,
+      questionContent: questionContent,
+      answerContent: answerContent,
+      questionTime: qtime,
+      answerTime: answerTime,
+      questionDate: questionDate.toISOString().slice(0, 10),
+      answerDate: answerDate ? answerDate.toISOString().slice(0, 10) : "",
+      questionDateTime: questionDate.toLocaleString("zh-CN"),
+      answerDateTime: answerDate ? answerDate.toLocaleString("zh-CN") : "",
+      cost: parseFloat(cost) || 0,
+      status: answer.status || 0,
+      raw: answer,
+      mediaUrl
+    };
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (s) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[s]);
+  }
+
+  function renderTable(rows, page = 1) {
+    tableBody.innerHTML = "";
+    
+    if (!rows.length) {
+      tableBody.innerHTML =
+        '<tr><td colspan="6" class="text-center text-muted py-4">没有找到匹配的数据</td></tr>';
+      resultCount.textContent = "";
+      paginationInfo.textContent = "";
+      return;
+    }
+
+    const totalPages = Math.ceil(rows.length / pageSize);
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, rows.length);
+    const pageRows = rows.slice(startIndex, endIndex);
+    const scope = getKeywordScope();
+    const fragment = document.createDocumentFragment();
+
+    pageRows.forEach((item) => {
+      const badge =
+        item.type === "文字"
+          ? '<span class="badge-text">文字</span>'
+          : '<span class="badge-audio">' + item.type + "</span>";
+      const kw = lastKeyword;
+      const highlightQuestion = scope !== "answer";
+      const highlightAnswer = scope !== "question";
+      const tr = document.createElement("tr");
+      tr.id = `row-${item.id}`;
+      if (highlightedRowId === item.id) {
+        tr.classList.add("highlight-row");
+      }
+      tr.style.cursor = "pointer";
+      tr.addEventListener("click", (e) => {
+        if (e.target.tagName === "A" || e.target.tagName === "BUTTON" || 
+            e.target.closest("audio") || e.target.closest("video") ||
+            e.target.closest("a") || e.target.closest("button")) {
+          return;
+        }
+        jumpToRowInFullList(item.id);
+      });
+      tr.title = "点击跳转到完整列表中的位置";
+      tr.innerHTML = `
+        <td>${badge}</td>
+        <td class="fw-bold">${escapeHtml(item.member)}</td>
+        <td class="text-muted small">${item.questionDateTime}</td>
+        <td class="question-content">${highlightQuestion ? highlightText(item.questionContent, kw) : escapeHtml(item.questionContent)}</td>
+        <td class="answer-content">
+          ${highlightAnswer ? highlightText(item.answerContent, kw) : escapeHtml(item.answerContent)}
+          ${renderMedia(item)}
+        </td>
+        <td class="text-danger fw-bold">${item.cost.toFixed(2)}</td>
+      `;
+      fragment.appendChild(tr);
+    });
+    
+    tableBody.appendChild(fragment);
+
+    resultCount.textContent = `共 ${rows.length} 条结果`;
+    paginationInfo.textContent = `显示第 ${startIndex + 1}-${endIndex} 条`;
+    pageInfo.textContent = `页，共 ${totalPages} 页`;
+    
+    const pageInput = document.getElementById("pageInput");
+    if (pageInput) {
+      pageInput.value = page;
+      pageInput.max = totalPages;
+    }
+    
+    prevPage.disabled = page <= 1;
+    nextPage.disabled = page >= totalPages;
+    
+    currentPage = page;
+    filteredRows = rows;
+  }
+
+  function updateStatusFilterCounts() {
+    if (!filterStatus || !rawAnswerList.length) return;
+    
+    const answeredCount = rawAnswerList.filter(a => a.status === 2).length;
+    const returnedCount = rawAnswerList.filter(a => a.status !== 2).length;
+    const totalCount = rawAnswerList.length;
+    
+    const allOption = filterStatus.querySelector('option[value=""]');
+    const answeredOption = filterStatus.querySelector('option[value="answered"]');
+    const returnedOption = filterStatus.querySelector('option[value="returned"]');
+    
+    if (allOption) allOption.textContent = `全部 (${totalCount})`;
+    if (answeredOption) answeredOption.textContent = `已翻 (${answeredCount})`;
+    if (returnedOption) returnedOption.textContent = `退回 (${returnedCount})`;
+  }
+
+  function applyFilter() {
+    if (!rawAnswerList.length) {
+      renderTable([], 1);
+      return;
+    }
+
+    const typeVal = filterType.value;
+    const statusVal = filterStatus ? filterStatus.value : "";
+    const costSort = sortCost.value;
+    const dateStart = filterDateStart.value;
+    const dateEnd = filterDateEnd.value;
+    const timeSort = sortTime.value;
+    const kw = filterKeyword.value.trim().toLowerCase();
+    lastKeyword = kw;
+    
+    if (clearSearchButton) {
+      clearSearchButton.style.display = kw ? "inline-block" : "none";
+    }
+
+    let sourceRows = [];
+    if (statusVal === "answered") {
+      sourceRows = viewRows;
+    } else if (statusVal === "returned") {
+      sourceRows = rawAnswerList
+        .filter(a => a.status !== 2)
+        .map(mapAnswerToRow);
+    } else {
+      sourceRows = rawAnswerList.map(mapAnswerToRow);
+    }
+
+    if (!sourceRows.length) {
+      renderTable([], 1);
+      return;
+    }
+
+    const scope = getKeywordScope();
+    let filtered = sourceRows.filter((row) => {
+      let ok = true;
+
+      if (typeVal) {
+        ok = ok && (row.answerType.toString() === typeVal);
+      }
+
+      if (dateStart) {
+        ok = ok && (row.questionDate >= dateStart);
+      }
+
+      if (dateEnd) {
+        ok = ok && (row.questionDate <= dateEnd);
+      }
+
+      if (kw) {
+        ok = ok && matchesKeyword(row, kw, scope);
+      }
+
+      return ok;
+    });
+
+    if (costSort === "desc") {
+      filtered.sort((a, b) => b.cost - a.cost);
+    } else if (costSort === "asc") {
+      filtered.sort((a, b) => a.cost - b.cost);
+    }
+
+    if (timeSort === "asc") {
+      filtered.sort((a, b) => {
+        const timeA = a.answerTime || a.questionTime;
+        const timeB = b.answerTime || b.questionTime;
+        return timeA - timeB;
+      });
+    } else if (timeSort === "desc") {
+      filtered.sort((a, b) => {
+        const timeA = a.answerTime || a.questionTime;
+        const timeB = b.answerTime || b.questionTime;
+        return timeB - timeA;
+      });
+    }
+
+    currentPage = 1;
+    renderTable(filtered, 1);
+  }
+
+  function getKeywordScope() {
+    const checked = Array.from(filterScopeRadios || []).find((r) => r.checked);
+    return checked ? checked.value : "all";
+  }
+
+  function matchesKeyword(row, kw, scope) {
+    if (!kw) return true;
+    const q = (row.questionContent || "").toLowerCase();
+    const a = (row.answerContent || "").toLowerCase();
+    if (scope === "question") {
+      return q.includes(kw);
+    }
+    if (scope === "answer") {
+      return a.includes(kw);
+    }
+    return q.includes(kw) || a.includes(kw);
+  }
+
+  function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function highlightText(text, kw) {
+    const source = String(text || "");
+    if (!kw) return escapeHtml(source);
+    const regex = new RegExp(escapeRegex(kw), "gi");
+    let lastIndex = 0;
+    let result = "";
+    let match;
+    while ((match = regex.exec(source)) !== null) {
+      result += escapeHtml(source.slice(lastIndex, match.index));
+      result += `<span class="kw-highlight">${escapeHtml(match[0])}</span>`;
+      lastIndex = match.index + match[0].length;
+    }
+    result += escapeHtml(source.slice(lastIndex));
+    return result;
+  }
+
+  function buildMediaUrl(url) {
+    if (!url) return "";
+    
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+    
+    if (url.startsWith("/")) {
+      return "https://pocketapi.48.cn" + url;
+    }
+    
+    try {
+      const u = new URL(url, "https://pocketapi.48.cn");
+      return u.href;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function sanitizeUrl(url) {
+    if (!url) return "";
+    const fullUrl = buildMediaUrl(url);
+    try {
+      const u = new URL(fullUrl);
+      if (u.protocol === "http:" || u.protocol === "https:") {
+        return u.href;
+      }
+    } catch (e) {
+      return "";
+    }
+    return "";
+  }
+
+  function getMediaType(url) {
+    if (!url) return "";
+    const lower = url.toLowerCase();
+    if (lower.includes('.mp3') || lower.includes('.m4a')) return 'audio/mpeg';
+    if (lower.includes('.wav')) return 'audio/wav';
+    if (lower.includes('.ogg')) return 'audio/ogg';
+    if (lower.includes('.mp4')) return 'video/mp4';
+    if (lower.includes('.webm')) return 'video/webm';
+    if (lower.includes('.ogg') || lower.includes('.ogv')) return 'video/ogg';
+    return "";
+  }
+
+  function renderMedia(item) {
+    const url = sanitizeUrl(item.mediaUrl);
+    if (!url) return "";
+
+    const mediaType = getMediaType(url);
+
+    if (item.answerType === 2) {
+      return `
+        <div style="margin-top: 8px;">
+          <audio controls preload="metadata" style="max-width: 100%; vertical-align: middle;">
+            <source src="${url}" ${mediaType ? `type="${mediaType}"` : ''}>
+            您的浏览器不支持音频播放。
+          </audio>
+          <br>
+          <a href="${url}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary mt-1">在新窗口打开</a>
+        </div>
+      `;
+    }
+
+    if (item.answerType === 3) {
+      return `
+        <div style="margin-top: 8px;">
+          <video controls preload="metadata" style="max-width: 100%; max-height: 240px; vertical-align: middle;">
+            <source src="${url}" ${mediaType ? `type="${mediaType}"` : ''}>
+            您的浏览器不支持视频播放。
+          </video>
+          <br>
+          <a href="${url}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary mt-1">在新窗口打开</a>
+        </div>
+      `;
+    }
+
+    return `<a class="btn btn-sm btn-outline-primary ms-2" href="${url}" target="_blank" rel="noopener">打开内容</a>`;
+  }
+
+  function jumpToRowInFullList(rowId) {
+    if (!rawAnswerList.length) {
+      alert("请先获取翻牌数据");
+      return;
+    }
+
+    const allRows = rawAnswerList.map(mapAnswerToRow);
+    const targetIndex = allRows.findIndex(row => row.id === rowId);
+    
+    if (targetIndex === -1) {
+      alert("未找到该翻牌");
+      return;
+    }
+
+    const savedKeyword = filterKeyword.value.trim();
+    filterType.value = "";
+    if (filterStatus) filterStatus.value = "";
+    filterDateStart.value = "";
+    filterDateEnd.value = "";
+    sortCost.value = "";
+    sortTime.value = "";
+    
+    highlightedRowId = rowId;
+    filteredRows = allRows;
+    const targetPage = Math.floor(targetIndex / pageSize) + 1;
+    renderTable(allRows, targetPage);
+    lastKeyword = savedKeyword.toLowerCase();
+    
+    setTimeout(() => {
+      const rowElement = document.getElementById(`row-${rowId}`);
+      if (rowElement) {
+        rowElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        rowElement.classList.add("highlight-row");
+        setTimeout(() => {
+          rowElement.classList.remove("highlight-row");
+        }, 3000);
+      }
+    }, 100);
+  }
+
+  function searchAndLocate() {
+    const kw = filterKeyword.value.trim().toLowerCase();
+    lastKeyword = kw;
+    
+    if (!kw) {
+      applyFilter();
+      if (clearSearchButton) clearSearchButton.style.display = "none";
+      return;
+    }
+
+    if (clearSearchButton) clearSearchButton.style.display = "inline-block";
+    applyFilter();
+  }
+
+  if (smsLoginForm) {
+    smsLoginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (sendCodeButton) {
+        sendCodeButton.click();
+      }
+    });
+  }
+
+  if (sendCodeButton) {
+    sendCodeButton.addEventListener("click", async () => {
+      const area = (areaCodeInput.value || "86").trim();
+      const mobile = mobileInput.value.trim();
+
+      if (!mobile) {
+        alert("请输入手机号");
+        return;
+      }
+
+      sendCodeButton.disabled = true;
+      sendCodeButton.textContent = "发送中...";
+      if (codeStatus) codeStatus.textContent = "";
+
+      try {
+        const resp = await fetchDataBeforeLogin("/user/api/v1/sms/send2", {
+          mobile: mobile,
+          area: area
+        });
+        if (resp.status !== 200 || resp.success === false) {
+          const errorMsg = resp.message || resp.msg || "未知错误";
+          alert("发送验证码失败: " + errorMsg + "\n状态码: " + (resp.status || "未知"));
+          sendCodeButton.disabled = false;
+          sendCodeButton.textContent = "发送验证码";
+          return;
+        } else {
+          console.log("验证码发送成功");
+          if (cancelLoginButton) cancelLoginButton.style.display = "block";
+          if (codeStatus) codeStatus.textContent = "✓ 验证码已发送，请查看短信并输入验证码";
+          if (verifyCodeInput) {
+            verifyCodeInput.value = "";
+            verifyCodeInput.disabled = false;
+            verifyCodeInput.focus();
+          }
+          if (loginButton) loginButton.disabled = false;
+          if (mobileInput) mobileInput.disabled = true;
+          if (areaCodeInput) areaCodeInput.disabled = true;
+        }
+      } catch (err) {
+        console.error("发送验证码请求异常:", err);
+        alert("发送验证码请求失败：" + err.message + "\n\n请检查网络连接或查看控制台获取详细信息。");
+      } finally {
+        sendCodeButton.disabled = false;
+        sendCodeButton.textContent = "发送验证码";
+      }
+    });
+  }
+
+  if (cancelLoginButton) {
+    cancelLoginButton.addEventListener("click", () => {
+      cancelLoginButton.style.display = "none";
+      if (verifyCodeInput) {
+        verifyCodeInput.value = "";
+        verifyCodeInput.disabled = true;
+      }
+      if (loginButton) loginButton.disabled = true;
+      if (codeStatus) codeStatus.textContent = "请先发送验证码";
+      if (mobileInput) mobileInput.disabled = false;
+      if (areaCodeInput) areaCodeInput.disabled = false;
+    });
+  }
+
+  if (loginButton) {
+    loginButton.addEventListener("click", async () => {
+      const area = (areaCodeInput.value || "86").trim();
+      const mobile = mobileInput.value.trim();
+      const code = verifyCodeInput.value.trim();
+
+      if (!mobile) {
+        alert("请输入手机号");
+        return;
+      }
+
+      if (!code) {
+        alert("请输入验证码");
+        if (verifyCodeInput) verifyCodeInput.focus();
+        return;
+      }
+
+      loginButton.disabled = true;
+      loginButton.textContent = "登录中...";
+      if (codeStatus) codeStatus.textContent = "正在登录...";
+
+      try {
+        const loginResp = await fetchDataBeforeLogin("/user/api/v1/login/app/mobile/code", {
+          mobile: mobile,
+          code: code
+        });
+
+        const content = loginResp.content || {};
+        const userInfo = content.userInfo || {};
+
+        const info = {
+          token: content.token,
+          nickname: userInfo.nickname,
+          id: userInfo.userId,
+          balance: userInfo.money
+        };
+
+        updateAccountHeader(info);
+        
+        if (cancelLoginButton) cancelLoginButton.style.display = "none";
+        if (verifyCodeInput) {
+          verifyCodeInput.value = "";
+          verifyCodeInput.disabled = true;
+        }
+        if (loginButton) loginButton.disabled = true;
+        if (codeStatus) codeStatus.textContent = "请先发送验证码";
+        if (mobileInput) mobileInput.disabled = false;
+        if (areaCodeInput) areaCodeInput.disabled = false;
+        
+        alert("登录成功！");
+      } catch (err) {
+        console.error(err);
+        alert("登录请求失败：" + err.message);
+        if (codeStatus) codeStatus.textContent = "登录失败，请重试";
+      } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = "确认登录";
+      }
+    });
+  }
+
+  if (verifyCodeInput) {
+    verifyCodeInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        if (loginButton) loginButton.click();
+      }
+    });
+  }
+
+
+  if (refreshBalanceBtn) {
+    refreshBalanceBtn.addEventListener("click", async () => {
+      if (!currentToken) {
+        alert("请先登录账号");
+        return;
+      }
+      try {
+        const resp = await fetchData(
+          "/user/api/v1/user/money",
+          { token: currentToken }
+        );
+        if (resp.status === 200) {
+          const money = resp.content && resp.content.moneyTotal;
+          selectedBalance.textContent =
+            money != null ? money : selectedBalance.textContent;
+          alert("余额已刷新");
+        } else {
+          alert("刷新余额失败: " + resp.message);
+        }
+      } catch (e) {
+        console.error(e);
+        alert("刷新余额时出错");
+      }
+    });
+  }
+
+  if (logoutButton) {
+    logoutButton.addEventListener("click", async () => {
+      if (!currentToken) {
+        alert("当前未登录");
+        return;
+      }
+      try {
+        const resp = await fetchData(
+          "/user/api/v1/logout/user",
+          {}
+        );
+        if (resp.status === 200 || resp.status === 401004) {
+          updateAccountHeader(null);
+          currentToken = null;
+          rawAnswerList = [];
+          viewRows = [];
+          filteredRows = [];
+          currentPage = 1;
+          highlightedRowId = null;
+          renderTable([], 1);
+          if (statsContainer) statsContainer.style.display = "none";
+          if (showStatsButton) {
+            showStatsButton.textContent = "显示统计（请先获取数据）";
+            showStatsButton.disabled = true;
+          }
+          filterKeyword.value = "";
+          filterType.value = "";
+          sortCost.value = "";
+          filterDateStart.value = "";
+          filterDateEnd.value = "";
+          sortTime.value = "";
+          
+          if (chatContainer) chatContainer.style.display = "none";
+          if (idolSelect) idolSelect.innerHTML = '<option value="">请先获取翻牌数据</option>';
+          if (startChatButton) startChatButton.disabled = true;
+          if (clearChatButton) clearChatButton.disabled = true;
+          if (chatStatus) chatStatus.textContent = "未开始聊天";
+          if (sampleListContainer) sampleListContainer.style.display = "none";
+          selectedSampleIndexes = new Set();
+          updateSampleHelper();
+          selectedIdol = null;
+          chatHistory = [];
+          
+          alert("已退出登录");
+        } else {
+          alert("退出登录失败: " + resp.message);
+        }
+      } catch (e) {
+        console.error(e);
+        alert("退出登录时出错");
+      }
+    });
+  }
+
+  if (getAnswerButton) {
+    getAnswerButton.addEventListener("click", async () => {
+      if (!currentToken) {
+        alert("请先登录账号");
+        return;
+      }
+
+      const maxRecords = parseInt(maxRecordsSelect?.value || "10000");
+      
+      if (maxRecords > 10000 || maxRecords === -1) {
+        if (!confirm(`你选择了获取${maxRecords === -1 ? '全部' : maxRecords}条数据。\n\n数据量过大可能导致浏览器卡顿或崩溃。\n\n建议：\n- 首次使用选择较小的数量\n- 确保浏览器有足够内存\n\n是否继续？`)) {
+          return;
+        }
+      }
+
+      getAnswerButton.disabled = true;
+      if (maxRecordsSelect) maxRecordsSelect.disabled = true;
+      const originalText = getAnswerButton.textContent;
+      getAnswerButton.textContent = "正在获取...";
+      
+      if (loadingProgress) loadingProgress.style.display = "block";
+
+      try {
+        let all = [];
+        let beginLimit = 0;
+        let size = 20;
+        let pageCount = 0;
+        const estimatedTotal = maxRecords === -1 ? 20000 : maxRecords;
+
+        while (size > 0) {
+          if (maxRecords !== -1 && all.length >= maxRecords) {
+            console.log(`已达到设置的最大条数限制：${maxRecords}`);
+            break;
+          }
+
+          pageCount++;
+          const progress = maxRecords === -1 ? 
+            Math.min(95, (all.length / estimatedTotal) * 100) : 
+            Math.min(95, (all.length / maxRecords) * 100);
+          
+          getAnswerButton.textContent = `正在获取... (第${pageCount}页，已获取${all.length}条)`;
+          if (loadingProgressBar) {
+            loadingProgressBar.style.width = progress + "%";
+          }
+          if (loadingProgressText) {
+            loadingProgressText.textContent = `${Math.round(progress)}% (${all.length}条)`;
+          }
+
+          const resp = await fetchData(
+            "/idolanswer/api/idolanswer/v1/user/question/list",
+            {
+              status: 0,
+              beginLimit: beginLimit,
+              memberId: "",
+              limit: 20
+            }
+          );
+
+          if (resp.status !== 200) {
+            const errorMsg = resp.message || resp.msg || "未知错误";
+            alert(`获取翻牌数据失败 (第${pageCount}页): ${errorMsg}\n状态码: ${resp.status}`);
+            console.error("API响应:", resp);
+            break;
+          }
+
+          const list = resp.content || [];
+          if (!Array.isArray(list)) {
+            console.error("响应格式错误，content不是数组:", resp);
+            alert(`响应格式错误：content字段不是数组。请查看控制台获取详细信息。`);
+            break;
+          }
+
+          // 使用 push.apply 代替 concat，减少内存分配
+          all.push(...list);
+          size = list.length;
+          beginLimit += 20;
+
+          if (size === 0) {
+            break;
+          }
+
+          if (pageCount % 100 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          } else {
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+        }
+
+        getAnswerButton.textContent = "正在处理数据...";
+        if (loadingProgressBar) loadingProgressBar.style.width = "95%";
+        if (loadingProgressText) loadingProgressText.textContent = "95% (处理中)";
+
+        rawAnswerList = all;
+        
+        const answered = [];
+        const batchSize = 500;
+        for (let i = 0; i < all.length; i += batchSize) {
+          const batch = all.slice(i, Math.min(i + batchSize, all.length));
+          answered.push(...batch.filter(a => a.status === 2));
+          
+          if (i % 1000 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+        }
+        
+        viewRows = answered.map(mapAnswerToRow);
+
+        if (all.length > 0) {
+          console.log("【翻牌数据结构示例】", all[0]);
+        }
+
+        if (!viewRows.length) {
+          alert("没有已翻的翻牌记录（status=2）");
+        }
+
+        getAnswerButton.textContent = "正在更新界面...";
+        if (loadingProgressBar) loadingProgressBar.style.width = "98%";
+        if (loadingProgressText) loadingProgressText.textContent = "98% (更新界面)";
+
+        updateStatusFilterCounts();
+        currentPage = 1;
+        
+        await new Promise(resolve => setTimeout(resolve, 10));
+        applyFilter();
+        
+        if (all.length > 0 && showStatsButton) {
+          showStatsButton.textContent = "显示统计";
+          showStatsButton.disabled = false;
+        }
+
+        updateIdolSelect();
+        
+        if (loadingProgressBar) loadingProgressBar.style.width = "100%";
+        if (loadingProgressText) loadingProgressText.textContent = "100% (完成)";
+        
+        setTimeout(() => {
+          if (loadingProgress) loadingProgress.style.display = "none";
+          alert(`获取完成！共获取 ${all.length} 条记录，其中已翻 ${viewRows.length} 条`);
+        }, 500);
+        
+      } catch (e) {
+        console.error("获取翻牌数据时出错:", e);
+        const errorMsg = e.message || e.toString();
+        alert(`获取翻牌数据时出错：\n${errorMsg}\n\n请打开浏览器控制台（F12）查看详细错误信息。`);
+        if (loadingProgress) loadingProgress.style.display = "none";
+      } finally {
+        getAnswerButton.disabled = false;
+        if (maxRecordsSelect) maxRecordsSelect.disabled = false;
+        getAnswerButton.textContent = "获取 / 刷新我的翻牌数据";
+      }
+    });
+  }
+
+  function getSampleLimit() {
+    const val = sampleCountSelect ? parseInt(sampleCountSelect.value, 10) : 20;
+    return Number.isFinite(val) && val > 0 ? val : 20;
+  }
+
+  function updateSampleHelper() {
+    const limit = getSampleLimit();
+    const selectedCount = selectedSampleIndexes.size;
+    if (sampleHelper) {
+      sampleHelper.textContent = selectedCount > 0
+        ? `已选 ${selectedCount} 条，将按上限 ${limit} 条传给大模型（超过上限会自动截断）。`
+        : `未勾选时默认取前 ${limit} 条样本。`;
+    }
+    if (clearSamplesButton) {
+      clearSamplesButton.disabled = selectedCount === 0;
+    }
+    if (selectAllSamples) {
+      selectAllSamples.disabled = !selectedIdol;
+    }
+  }
+
+  function renderSampleList(page = 1) {
+    if (!sampleListContainer || !sampleList) return;
+
+    if (!selectedIdol || !selectedIdol.answers || selectedIdol.answers.length === 0) {
+      sampleListContainer.style.display = "none";
+      sampleList.innerHTML = "";
+      selectedSampleIndexes = new Set();
+      updateSampleHelper();
+      return;
+    }
+
+    const totalAnswers = selectedIdol.answers.length;
+    const totalPages = Math.ceil(totalAnswers / SAMPLE_PAGE_SIZE);
+    currentSamplePage = Math.max(1, Math.min(page, totalPages));
+
+    const startIndex = (currentSamplePage - 1) * SAMPLE_PAGE_SIZE;
+    const endIndex = Math.min(startIndex + SAMPLE_PAGE_SIZE, totalAnswers);
+    const pageAnswers = selectedIdol.answers.slice(startIndex, endIndex);
+
+    sampleListContainer.style.display = "block";
+    if (sampleListInfo) {
+      sampleListInfo.textContent = `共 ${totalAnswers} 条翻牌，显示第 ${startIndex + 1}-${endIndex} 条`;
+    }
+
+    if (samplePageInput) {
+      samplePageInput.value = currentSamplePage;
+      samplePageInput.max = totalPages;
+    }
+    if (samplePageInfo) {
+      samplePageInfo.textContent = `页，共 ${totalPages} 页`;
+    }
+    if (samplePrevPage) {
+      samplePrevPage.disabled = currentSamplePage <= 1;
+    }
+    if (sampleNextPage) {
+      sampleNextPage.disabled = currentSamplePage >= totalPages;
+    }
+
+    sampleList.innerHTML = "";
+    const frag = document.createDocumentFragment();
+
+    pageAnswers.forEach((item, localIndex) => {
+      const globalIndex = startIndex + localIndex;
+      const label = document.createElement("label");
+      label.className = "sample-item";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "form-check-input mt-1";
+      checkbox.checked = selectedSampleIndexes.has(globalIndex);
+      checkbox.addEventListener("change", (e) => {
+        if (e.target.checked) {
+          selectedSampleIndexes.add(globalIndex);
+        } else {
+          selectedSampleIndexes.delete(globalIndex);
+        }
+        updateSampleHelper();
+      });
+
+      const textWrapper = document.createElement("div");
+      textWrapper.className = "sample-text";
+
+      const meta = document.createElement("div");
+      meta.className = "sample-meta";
+      const timeLabel = item.time ? new Date(item.time).toLocaleDateString("zh-CN") : "时间未知";
+      meta.textContent = `示例 ${globalIndex + 1} · ${timeLabel}`;
+
+      const questionDiv = document.createElement("div");
+      questionDiv.innerHTML = `<span class="sample-badge">Q</span>${escapeHtml(item.question || "")}`;
+
+      const answerDiv = document.createElement("div");
+      answerDiv.innerHTML = `<span class="sample-badge">A</span>${escapeHtml(item.answer || "")}`;
+
+      textWrapper.appendChild(meta);
+      textWrapper.appendChild(questionDiv);
+      textWrapper.appendChild(answerDiv);
+
+      label.appendChild(checkbox);
+      label.appendChild(textWrapper);
+      frag.appendChild(label);
+    });
+
+    sampleList.appendChild(frag);
+    updateSampleHelper();
+  }
+
+  function getExamplesForPrompt(idol) {
+    if (!idol || !idol.answers) return [];
+    const limit = getSampleLimit();
+
+    if (selectedSampleIndexes.size > 0) {
+      const indexes = Array.from(selectedSampleIndexes).sort((a, b) => a - b);
+      const picked = indexes
+        .filter(idx => idx >= 0 && idx < idol.answers.length)
+        .map((idx) => idol.answers[idx])
+        .filter(Boolean);
+      return picked.slice(0, limit);
+    }
+
+    return idol.answers.slice(0, limit);
+  }
+
+  function updateIdolSelect() {
+    if (!idolSelect) return;
+    
+    const idols = new Map();
+    rawAnswerList.forEach((answer) => {
+      const memberName = (answer.baseUserInfo && (answer.baseUserInfo.nickname || answer.baseUserInfo.starName)) || "";
+      if (memberName && answer.status === 2 && answer.answerContent) {
+        if (!idols.has(memberName)) {
+          idols.set(memberName, {
+            name: memberName,
+            answers: []
+          });
+        }
+        idols.get(memberName).answers.push({
+          question: answer.content || "",
+          answer: answer.answerType === 1 ? answer.answerContent : "[多媒体翻牌]",
+          time: answer.answerTime || answer.qtime
+        });
+      }
+    });
+
+    idolSelect.innerHTML = '<option value="">请选择小偶像</option>';
+    idols.forEach((idol, name) => {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = `${name} (${idol.answers.length}条翻牌)`;
+      idolSelect.appendChild(option);
+    });
+
+    if (idols.size > 0) {
+      startChatButton.disabled = false;
+    } else {
+      startChatButton.disabled = true;
+    }
+
+    selectedIdol = null;
+    selectedSampleIndexes = new Set();
+    currentSamplePage = 1;
+    renderSampleList(1);
+    updateSampleHelper();
+  }
+
+  if (idolSelect) {
+    idolSelect.addEventListener("change", (e) => {
+      if (e.target.value) {
+        const idols = new Map();
+        rawAnswerList.forEach((answer) => {
+          const memberName = (answer.baseUserInfo && (answer.baseUserInfo.nickname || answer.baseUserInfo.starName)) || "";
+          if (memberName === e.target.value && answer.status === 2 && answer.answerContent) {
+            if (!idols.has(memberName)) {
+              idols.set(memberName, {
+                name: memberName,
+                answers: []
+              });
+            }
+            idols.get(memberName).answers.push({
+              question: answer.content || "",
+              answer: answer.answerType === 1 ? answer.answerContent : "[多媒体翻牌]",
+              time: answer.answerTime || answer.qtime
+            });
+          }
+        });
+        selectedIdol = idols.get(e.target.value);
+        selectedSampleIndexes = new Set();
+        currentSamplePage = 1;
+        renderSampleList(1);
+        updateSampleHelper();
+      } else {
+        selectedIdol = null;
+        selectedSampleIndexes = new Set();
+        currentSamplePage = 1;
+        renderSampleList(1);
+        updateSampleHelper();
+      }
+    });
+  }
+
+  if (sampleCountSelect) {
+    sampleCountSelect.addEventListener("change", () => {
+      renderSampleList(currentSamplePage);
+      updateSampleHelper();
+    });
+  }
+
+  if (samplePrevPage) {
+    samplePrevPage.addEventListener("click", () => {
+      if (currentSamplePage > 1) {
+        renderSampleList(currentSamplePage - 1);
+      }
+    });
+  }
+
+  if (sampleNextPage) {
+    sampleNextPage.addEventListener("click", () => {
+      if (selectedIdol && selectedIdol.answers) {
+        const totalPages = Math.ceil(selectedIdol.answers.length / SAMPLE_PAGE_SIZE);
+        if (currentSamplePage < totalPages) {
+          renderSampleList(currentSamplePage + 1);
+        }
+      }
+    });
+  }
+
+    if (samplePageInput && samplePageInfo) {
+      const goToSamplePage = () => {
+        if (!selectedIdol || !selectedIdol.answers) return;
+        const totalPages = Math.ceil(selectedIdol.answers.length / SAMPLE_PAGE_SIZE);
+        const targetPage = parseInt(samplePageInput.value);
+        if (targetPage >= 1 && targetPage <= totalPages) {
+          renderSampleList(targetPage);
+        } else {
+          alert(`页码必须在 1-${totalPages} 之间`);
+          samplePageInput.value = currentSamplePage;
+        }
+      };
+
+      samplePageInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          goToSamplePage();
+        }
+      });
+
+      samplePageInput.addEventListener("blur", goToSamplePage);
+    }
+
+  [apiBaseInput, apiKeyInput, modelInput].forEach((input) => {
+    if (input) {
+      input.addEventListener("change", saveAIConfig);
+      input.addEventListener("blur", saveAIConfig);
+    }
+  });
+
+  if (selectAllSamples) {
+    selectAllSamples.addEventListener("click", () => {
+      if (!selectedIdol) return;
+      const startIndex = (currentSamplePage - 1) * SAMPLE_PAGE_SIZE;
+      const endIndex = Math.min(startIndex + SAMPLE_PAGE_SIZE, selectedIdol.answers.length);
+      const limit = getSampleLimit();
+      const indexesToSelect = [];
+      for (let i = startIndex; i < endIndex && indexesToSelect.length < limit; i++) {
+        indexesToSelect.push(i);
+      }
+      
+      indexesToSelect.forEach(idx => selectedSampleIndexes.add(idx));
+      renderSampleList(currentSamplePage);
+    });
+  }
+
+  if (clearSamplesButton) {
+    clearSamplesButton.addEventListener("click", () => {
+      selectedSampleIndexes = new Set();
+      renderSampleList(currentSamplePage);
+    });
+  }
+
+  if (testAIButton) {
+    testAIButton.addEventListener("click", async () => {
+      try {
+        const { apiBase, apiKey, modelName } = getAIConfig();
+        testAIButton.disabled = true;
+        const originalText = testAIButton.textContent;
+        testAIButton.textContent = "测试中...";
+        if (chatStatus) chatStatus.textContent = "AI接口测试中...";
+        addSystemMessage("开始测试 AI 接口...");
+        console.log("测试 AI 接口，请求 URL:", `${apiBase}/v1/chat/completions`);
+        const resp = await fetch(`${apiBase}/v1/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              { role: "system", content: "你是一个健康检查机器人" },
+              { role: "user", content: "回复两个字：OK" }
+            ],
+            max_tokens: 10,
+            temperature: 0
+          })
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text();
+          throw new Error(`HTTP ${resp.status}: ${text.slice(0, 200)}`);
+        }
+
+        const data = await resp.json();
+        const content = data?.choices?.[0]?.message?.content || "";
+        const preview = content.slice(0, 50) || "无内容";
+        addSystemMessage(`测试成功，模型响应：${preview}`);
+        alert(`AI接口测试成功，模型返回：${preview}`);
+        if (chatStatus) chatStatus.textContent = "AI接口测试通过";
+      } catch (err) {
+        console.error("AI测试失败", err);
+        let errorMessage = err.message;
+        
+        if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
+          errorMessage = "无法连接到 Worker 服务器。请检查：\n1. Worker 是否已部署\n2. Worker URL 是否正确配置\n3. 网络连接是否正常";
+        } else if (errorMessage.includes("Invalid model name") || errorMessage.includes("Invalid model")) {
+          errorMessage = "模型名称无效。请尝试：\n1. 更换其他模型\n2. 或访问 Worker URL/v1/models 查看可用模型列表";
+        }
+        
+        addSystemMessage(`AI测试失败：${errorMessage}`);
+        alert(`AI测试失败：${errorMessage}`);
+        if (chatStatus) chatStatus.textContent = "AI接口测试失败";
+      } finally {
+        testAIButton.disabled = false;
+        testAIButton.textContent = "测试";
+      }
+    });
+  }
+
+  if (startChatButton) {
+    startChatButton.addEventListener("click", () => {
+      if (!selectedIdol) {
+        alert("请先选择一个小偶像");
+        return;
+      }
+      chatContainer.style.display = "block";
+      chatInput.disabled = false;
+      sendButton.disabled = false;
+      clearChatButton.disabled = false;
+      chatStatus.textContent = `正在与 ${selectedIdol.name} 聊天`;
+      chatHistory = [];
+      chatMessages.innerHTML = "";
+      const exampleCount = getExamplesForPrompt(selectedIdol).length;
+      const modeText = selectedSampleIndexes.size > 0 ? "手动勾选" : "自动截取";
+      addSystemMessage(`已开始与 ${selectedIdol.name} 的AI对话，AI 将使用 ${exampleCount} 条翻牌示例（${modeText}，上限 ${getSampleLimit()} 条）`);
+    });
+  }
+
+  if (clearChatButton) {
+    clearChatButton.addEventListener("click", () => {
+      if (confirm("确定要清空聊天记录吗？")) {
+        chatHistory = [];
+        chatMessages.innerHTML = "";
+        addSystemMessage("聊天记录已清空");
+      }
+    });
+  }
+
+  if (sendButton) {
+    sendButton.addEventListener("click", sendMessage);
+  }
+
+  if (chatInput) {
+    chatInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  }
+
+  function addSystemMessage(text) {
+    const messageDiv = document.createElement("div");
+    messageDiv.className = "message system";
+    messageDiv.style.textAlign = "center";
+    messageDiv.style.margin = "10px 0";
+    messageDiv.innerHTML = `<span style="color: #999; font-size: 12px;">${escapeHtml(text)}</span>`;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function addMessage(sender, text, isFan = false) {
+    const messageDiv = document.createElement("div");
+    messageDiv.className = `message ${isFan ? 'fan' : 'idol'}`;
+    
+    const senderDiv = document.createElement("div");
+    senderDiv.className = "message-sender";
+    senderDiv.textContent = sender;
+    
+    const bubbleDiv = document.createElement("div");
+    bubbleDiv.className = "message-bubble";
+    bubbleDiv.textContent = text;
+    
+    const timeDiv = document.createElement("div");
+    timeDiv.className = "message-time";
+    timeDiv.textContent = new Date().toLocaleTimeString("zh-CN", { hour: '2-digit', minute: '2-digit' });
+    
+    messageDiv.appendChild(senderDiv);
+    messageDiv.appendChild(bubbleDiv);
+    messageDiv.appendChild(timeDiv);
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message || !selectedIdol) {
+      return;
+    }
+
+    chatInput.disabled = true;
+    sendButton.disabled = true;
+    sendButton.textContent = "发送中...";
+
+    addMessage("我", message, true);
+    chatHistory.push({ role: "user", content: message });
+    chatInput.value = "";
+
+    try {
+      const systemPrompt = buildSystemPrompt(selectedIdol);
+      const response = await callAI(systemPrompt, chatHistory);
+      
+      addMessage(selectedIdol.name, response, false);
+      chatHistory.push({ role: "assistant", content: response });
+    } catch (error) {
+      console.error("AI调用失败:", error);
+      addMessage("系统", "抱歉，AI回复失败：" + error.message, false);
+    } finally {
+      chatInput.disabled = false;
+      sendButton.disabled = false;
+      sendButton.textContent = "发送";
+      chatInput.focus();
+    }
+  }
+
+  function buildSystemPrompt(idol) {
+    const examples = getExamplesForPrompt(idol);
+    let prompt = `你是一个AI助手，需要模仿${idol.name}的说话方式和风格。\n\n`;
+    prompt += `以下是${idol.name}的真实翻牌记录，请仔细学习其说话风格、用词习惯、语气特点：\n\n`;
+    
+    examples.forEach((item, index) => {
+      prompt += `【示例${index + 1}】\n`;
+      prompt += `粉丝提问：${item.question}\n`;
+      prompt += `${idol.name}回答：${item.answer}\n\n`;
+    });
+    
+    prompt += `请根据以上示例，模仿${idol.name}的说话方式与粉丝对话。要求：\n`;
+    prompt += `1. 语气和风格要与示例保持一致\n`;
+    prompt += `2. 用词习惯要符合该偶像的特点\n`;
+    prompt += `3. 回答要自然、亲切，符合偶像与粉丝的互动方式\n`;
+    prompt += `4. 如果问题涉及隐私或不适合回答，可以委婉拒绝\n`;
+    prompt += `5. 回答长度适中，不要太长也不要太短\n`;
+    
+    return prompt;
+  }
+
+  async function callAI(systemPrompt, history) {
+    const { apiBase, apiKey, modelName } = getAIConfig();
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...history
+    ];
+
+    try {
+      const response = await fetch(`${apiBase}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 4096
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API请求失败: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.choices && data.choices.length > 0) {
+        return data.choices[0].message.content.trim();
+      } else {
+        throw new Error("API返回格式错误");
+      }
+      } catch (error) {
+        if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+          throw new Error("无法连接到 Worker 服务器。请检查 Worker 是否已部署，或联系管理员。");
+        } else if (error.message.includes("Invalid model name") || error.message.includes("Invalid model")) {
+          throw new Error(`模型名称无效：${modelName}。请尝试：\n1. 更换其他模型\n2. 刷新页面清除缓存\n3. 访问 ${apiBase}/v1/models 查看可用模型列表`);
+        }
+        throw error;
+      }
+    }
+
+  if (filterType) {
+    filterType.addEventListener("change", applyFilter);
+  }
+  if (filterStatus) {
+    filterStatus.addEventListener("change", applyFilter);
+  }
+  if (sortCost) {
+    sortCost.addEventListener("change", applyFilter);
+  }
+  if (filterDateStart) {
+    filterDateStart.addEventListener("change", applyFilter);
+  }
+  if (filterDateEnd) {
+    filterDateEnd.addEventListener("change", applyFilter);
+  }
+  if (sortTime) {
+    sortTime.addEventListener("change", applyFilter);
+  }
+  if (filterKeyword) {
+    filterKeyword.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        searchAndLocate();
+      }
+    });
+  }
+  if (filterScopeRadios && filterScopeRadios.length > 0) {
+    filterScopeRadios.forEach((radio) => {
+      radio.addEventListener("change", () => {
+        applyFilter();
+      });
+    });
+  }
+  if (searchButton) {
+    searchButton.addEventListener("click", searchAndLocate);
+  }
+  
+  if (clearSearchButton) {
+    clearSearchButton.addEventListener("click", () => {
+      filterKeyword.value = "";
+      lastKeyword = "";
+      applyFilter();
+      clearSearchButton.style.display = "none";
+    });
+  }
+  if (prevPage) {
+    prevPage.addEventListener("click", () => {
+      if (currentPage > 1) {
+        renderTable(filteredRows.length > 0 ? filteredRows : viewRows, currentPage - 1);
+      }
+    });
+  }
+  if (nextPage) {
+    nextPage.addEventListener("click", () => {
+      const totalPages = Math.ceil((filteredRows.length > 0 ? filteredRows : viewRows).length / pageSize);
+      if (currentPage < totalPages) {
+        renderTable(filteredRows.length > 0 ? filteredRows : viewRows, currentPage + 1);
+      }
+    });
+  }
+  if (goToPage && pageInput) {
+    goToPage.addEventListener("click", () => {
+      const targetPage = parseInt(pageInput.value);
+      const rows = filteredRows.length > 0 ? filteredRows : viewRows;
+      const totalPages = Math.ceil(rows.length / pageSize);
+      if (targetPage >= 1 && targetPage <= totalPages) {
+        renderTable(rows, targetPage);
+      } else {
+        alert(`页码必须在 1-${totalPages} 之间`);
+        pageInput.value = currentPage;
+      }
+    });
+    pageInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        goToPage.click();
+      }
+    });
+  }
+
+
+  if (exportButton) {
+    exportButton.addEventListener("click", () => {
+      try {
+        if (typeof XLSX === 'undefined') {
+          alert("Excel导出功能需要加载XLSX库，请刷新页面重试");
+          console.error("XLSX库未加载");
+          return;
+        }
+
+        if (!rawAnswerList.length) {
+          alert("暂无数据可导出，请先获取翻牌数据");
+          return;
+        }
+
+        exportButton.disabled = true;
+        exportButton.textContent = "正在导出...";
+
+        const allRowsToExport = rawAnswerList.map(mapAnswerToRow);
+        
+        const excelData = allRowsToExport.map((row) => ({
+          "类型": row.type || "",
+          "偶像名": row.member || "",
+          "提问时间": row.questionDateTime || "",
+          "回答时间": row.answerDateTime || "",
+          "翻牌提问内容": row.questionContent || "",
+          "翻牌回答内容": row.answerContent || "",
+          "状态": row.status === 2 ? "已翻" : (row.status === 1 ? "待翻" : "未翻/已退款"),
+          "鸡腿数": row.cost || 0
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "翻牌记录");
+
+        const idText = selectedId.textContent.replace(/[()ID:\s]/g, "") || "";
+        const nick   = selectedNickname.textContent || "";
+        const name =
+          (idText || nick)
+            ? `${idText || "id"}-${nick || "user"}-翻牌记录.xlsx`
+            : "pocket48_翻牌记录.xlsx";
+
+        XLSX.writeFile(wb, name);
+        
+        setTimeout(() => {
+          exportButton.disabled = false;
+          exportButton.textContent = "导出 Excel";
+          alert(`导出成功！共导出 ${allRowsToExport.length} 条记录（包含所有状态）\n\n文件名：${name}\n保存位置：浏览器默认下载文件夹`);
+        }, 500);
+      } catch (error) {
+        console.error("导出Excel时出错:", error);
+        alert("导出失败：" + error.message + "\n请查看控制台获取详细信息");
+        exportButton.disabled = false;
+        exportButton.textContent = "导出 Excel";
+      }
+    });
+  }
+
+  if (previewButton) {
+    previewButton.addEventListener("click", () => {
+      try {
+        if (!rawAnswerList.length) {
+          alert("暂无数据可预览，请先获取翻牌数据");
+          return;
+        }
+
+        previewButton.disabled = true;
+        previewButton.textContent = "生成中...";
+
+        const allRowsToExport = rawAnswerList.map(mapAnswerToRow);
+        const idText = selectedId.textContent.replace(/[()ID:\s]/g, "") || "";
+        const nick   = selectedNickname.textContent || "";
+        const title = (idText || nick) ? `${nick}的翻牌记录` : "口袋48翻牌记录";
+        const fileName = (idText || nick) ? `${idText || "id"}-${nick || "user"}-翻牌记录.html` : "口袋48翻牌记录.html";
+
+        const previewHTML = generatePreviewHTML(allRowsToExport, title);
+        const previewWindow = window.open('', '_blank');
+        
+        if (previewWindow && !previewWindow.closed) {
+          previewWindow.document.write(previewHTML);
+          previewWindow.document.close();
+        } else {
+          const blob = new Blob([previewHTML], { type: 'text/html;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+        }
+
+        previewButton.disabled = false;
+        previewButton.textContent = "预览/下载";
+      } catch (error) {
+        console.error("生成预览时出错:", error);
+        alert("❌ 预览失败：" + error.message + "\n\n请尝试使用「导出 Excel」功能");
+        previewButton.disabled = false;
+        previewButton.textContent = "预览/下载";
+      }
+    });
+  }
+
+  function generatePreviewHTML(rows, title) {
+    const date = new Date().toLocaleDateString('zh-CN');
+    const time = new Date().toLocaleString('zh-CN');
+    let tableRows = '';
+    rows.forEach((row, index) => {
+      const statusText = row.status === 2 ? '✅ 已翻' : (row.status === 1 ? '⏳ 待翻' : '❌ 退回');
+      const costColor = row.status === 2 ? '#dc3545' : '#999';
+      
+      tableRows += `
+        <tr>
+          <td style="text-align: center;">${index + 1}</td>
+          <td style="text-align: center;">${escapeHtml(row.type)}</td>
+          <td><strong>${escapeHtml(row.member)}</strong></td>
+          <td style="font-size: 12px; color: #666;">${escapeHtml(row.questionDateTime)}</td>
+          <td style="max-width: 250px; word-wrap: break-word; white-space: pre-wrap;">${escapeHtml(row.questionContent)}</td>
+          <td style="max-width: 250px; word-wrap: break-word; white-space: pre-wrap;">${escapeHtml(row.answerContent)}</td>
+          <td style="text-align: center;">${statusText}</td>
+          <td style="text-align: right; color: ${costColor}; font-weight: bold;">${row.cost.toFixed(2)}</td>
+        </tr>
+      `;
+    });
+
+    return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>${escapeHtml(title)} - ${date}</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      padding: 10px;
+      background: #f5f5f7;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .header {
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .header h1 {
+      font-size: 20px;
+      margin-bottom: 8px;
+      color: #333;
+    }
+    .header .info {
+      color: #666;
+      font-size: 12px;
+    }
+    .table-container {
+      background: white;
+      border-radius: 12px;
+      overflow-x: auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 15px;
+    }
+    table {
+      width: 100%;
+      min-width: 800px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead {
+      background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    th {
+      padding: 12px 8px;
+      text-align: left;
+      font-weight: 600;
+      color: #333;
+      border-bottom: 2px solid #dee2e6;
+      white-space: nowrap;
+    }
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #555;
+    }
+    tr:nth-child(even) {
+      background: #fafafa;
+    }
+    tr:hover {
+      background: #f0f8ff !important;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 15px;
+      padding: 15px;
+      color: #999;
+      font-size: 12px;
+      background: white;
+      border-radius: 10px;
+    }
+    @media print {
+      body { background: white; padding: 0; }
+      .header, .table-container { box-shadow: none; }
+    }
+    @media (max-width: 768px) {
+      body { padding: 5px; }
+      .header h1 { font-size: 18px; }
+      table { font-size: 12px; min-width: 600px; }
+      th, td { padding: 8px 5px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${escapeHtml(title)}</h1>
+    <div class="info">
+      📅 导出日期：${date} | 📊 共 ${rows.length} 条记录
+    </div>
+  </div>
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 40px;">#</th>
+          <th style="width: 60px;">类型</th>
+          <th style="width: 100px;">偶像名</th>
+          <th style="width: 140px;">提问时间</th>
+          <th style="min-width: 200px;">提问内容</th>
+          <th style="min-width: 200px;">回答内容</th>
+          <th style="width: 70px;">状态</th>
+          <th style="width: 70px;">鸡腿数</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    🎵 口袋48翻牌记录检索工具<br>
+    ⏰ 导出时间：${time}
+  </div>
+</body>
+</html>`;
+  }
+
+  function calculateStats() {
+    if (!rawAnswerList.length) {
+      alert("暂无数据，请先获取翻牌数据");
+      return;
+    }
+
+    const statsMap = new Map();
+
+    rawAnswerList.forEach((answer) => {
+      const isAnswered = answer.status === 2;
+      if (!isAnswered) {
+        return;
+      }
+
+      const memberName =
+        (answer.baseUserInfo && (answer.baseUserInfo.nickname || answer.baseUserInfo.starName)) ||
+        (answer.memberName) ||
+        "未知成员";
+      
+      const memberId = 
+        (answer.baseUserInfo && answer.baseUserInfo.userId) ||
+        (answer.memberId) ||
+        memberName;
+
+      const price = 
+        answer.price || 
+        answer.cost || 
+        answer.money || 
+        answer.amount ||
+        0;
+      
+      const priceNum = parseFloat(price) || 0;
+
+      if (!statsMap.has(memberId)) {
+        statsMap.set(memberId, {
+          memberName: memberName,
+          count: 0,
+          totalPrice: 0
+        });
+      }
+
+      const stat = statsMap.get(memberId);
+      stat.count += 1;
+      stat.totalPrice += priceNum;
+    });
+
+    const statsArray = Array.from(statsMap.values()).sort((a, b) => b.totalPrice - a.totalPrice);
+
+    statsTableBody.innerHTML = "";
+    
+    if (statsArray.length === 0) {
+      statsTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">暂无统计数据</td></tr>';
+      statsInfo.textContent = "";
+      return;
+    }
+
+    let totalCount = 0;
+    let totalPrice = 0;
+
+    statsArray.forEach((stat) => {
+      totalCount += stat.count;
+      totalPrice += stat.totalPrice;
+      
+    
+      const avgPrice = stat.count > 0 ? (stat.totalPrice / stat.count).toFixed(2) : "0.00";
+      
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="fw-bold">${escapeHtml(stat.memberName)}</td>
+        <td>${stat.count}</td>
+        <td class="text-danger fw-bold">${stat.totalPrice.toFixed(2)}</td>
+        <td class="text-muted">${avgPrice}</td>
+      `;
+      statsTableBody.appendChild(tr);
+    });
+
+    statsInfo.textContent = `共统计 ${statsArray.length} 位成员，总计 ${totalCount} 条已翻翻牌，总花费 ${totalPrice.toFixed(2)} 鸡腿`;
+
+    statsContainer.style.display = "block";
+  }
+
+  if (showStatsButton) {
+    showStatsButton.addEventListener("click", () => {
+      calculateStats();
+    });
+  }
+
+  loadAIConfig();
+  updateSampleHelper();
+});
+</script>
+</script>
+
+<div style="text-align: center; margin-top: 20px; font-size: 14px; color: #666;">
+  <p>
+    本项目已开源于 
+    <a href="https://github.com/Dev-XZY/popcan48" target="_blank" style="text-decoration: none; color: #333; font-weight: bold;">
+      <svg height="20" width="20" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 4px;">
+        <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+      </svg>
+      GitHub
+    </a>
+  </p>
+</div>
+</body>
+</html>

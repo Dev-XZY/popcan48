@@ -1,0 +1,17 @@
+# macOS 系统垃圾文件
+.DS_Store
+
+# Node.js 依赖包 (如果有)
+node_modules/
+
+# 环境变量 (包含敏感信息，千万别传)
+.env
+
+# 调试日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 编辑器配置
+.vscode/
+.idea/
